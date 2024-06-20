@@ -1,4 +1,4 @@
-# Cleaning data: Test Mn-dependency 
+# Cleaning data: Test of the the effect of H2O2 concentration on product formation in the DMAB/MBTH assay
 
 # Load packages ####
 library(tidyverse) # ver. 2.0.0
