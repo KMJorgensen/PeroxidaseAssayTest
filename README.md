@@ -1,7 +1,7 @@
 # About the repository
 
 Data and R code to reproduce results in the submitted manuscript: \
-Targering Mn-dependent peroxidase activities - considerations and optimizations
+Targeting Mn-dependent peroxidase activities - considerations and optimizations
 
 By: Erica E. Packard and Karolina Jörgensen
 
