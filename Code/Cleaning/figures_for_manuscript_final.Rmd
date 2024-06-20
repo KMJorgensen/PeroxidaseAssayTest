@@ -1,0 +1,304 @@
+---
+title: "Figures for manuscript"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r plot_settings, echo = FALSE, message = FALSE, warning = FALSE }
+
+library(tidyverse)
+library(patchwork)
+library(RColorBrewer)
+library(quickpalette)
+library(shades)
+
+custom_cols <- c("A_H2O2"= "#FF7433", "A" = "#FFAB85", "B_H2O2" = "#467986", "B" = "#79ACB9")
+
+A <- expression("MnSO"[4])
+AH <- expression(paste("MnSO"[4]~"+ H"[2]*"O"[2]))
+B <- expression("EDTA")
+BH <- expression(paste("EDTA + H"[2]*"O"[2]))
+
+
+custom_names <- c("A_H2O2"= AH,
+                  "A" = A,
+                  "B_H2O2" = BH,
+                  "B" = B)
+
+```
+
+## H<sub>2</sub>O<sub>2</sub> concentration
+
+**Figure 1 - H<sub>2</sub>O<sub>2</sub> optimization** We evaluated how the concentration of H<sub>2</sub>O<sub>2</sub> affected the oxidation of MBTH/DMAB using two concentrations of MnP (0.005 U and 0.008 U, 10 µl in the 200 µl reaction).
+
+We found that both too low and too high concentrations were sub-optimal for the reactions and that a lower concentration (2.5 mM) than we usually have been using (5 mM) seemed to be optimal for our assay conditions
+
+```{r H2O2, echo = FALSE, message = FALSE, warning = FALSE}
+h2o2.dat <- read_csv("Data/Clean/clean_H2O2_concentration.csv")
+
+h2o2.dat$H2O2_conc <- as.factor(h2o2.dat$H2O2_conc)
+h2o2.dat$MnP_conc <- as.factor(h2o2.dat$MnP_conc)
+
+# Summarize mean values for technical replicates for each time point
+
+h2o2.sum <- h2o2.dat |> 
+  group_by(time_min, MnP_conc, H2O2_conc) |> 
+  summarise(mean = mean(absorbance))
+
+#remove half of the points to reduce clutter to the figure
+h2o2.sum.reduced<-h2o2.sum[-grep(".5",h2o2.sum$time_min,fixed = TRUE),]
+
+#convert using standard_curve
+h2o2.sum.reduced$mean_U<- (h2o2.sum.reduced$mean*5.9783)+0.0631
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+
+grad_cols <- c("0"= "#A1C4CE", "0.375" = "#87B3C0", "0.75" = "#6CA3B2", "1.25" = "#5490A0", "2.5" = "#467886", "5"= "#38606B", "10" = "#2A4850", "50" = "#1C3035" )
+
+grad_cols2 <- c("0"= "#60ae94", "0.375" = "#6c9473", "0.75" = "#568678", "1.25" = "#506c78", "2.5" = "#436074", "5"= "#334151", "10" = "#1b283b", "50" = "#0a0c1a" )
+
+grad_cols3 <- c("0"= "#1ee19b", "0.375" = "#2cbd89", "0.75" = "#0f9774", "1.25" = "#009657", "2.5" = "#226346", "5"= "#0f4926", "10" = "#0d2d1b", "50" = "#16261a" )
+
+grad_shapes <- c("0"= 4, "0.375" = 3, "0.75" = 5, "1.25" = 2, "2.5" = 0, "5"= 6, "10" = 10, "50" = 19)
+
+#tiff("Figures/Figure_1.tiff",width = 100,height = 50,res = 1000,units = "mm")
+ggplot(h2o2.sum.reduced, aes(x = time_min, y = mean_U, color = H2O2_conc, shape = H2O2_conc))+
+  geom_point(size = 0.5,stroke=0.25)+
+  scale_shape_manual(values = grad_shapes,
+                     name = bquote("H"[2]*"O"[2]~"concentration"))+
+  scale_colour_manual(values = grad_cols3,
+                      name = bquote("H"[2]*"O"[2]~"concentration"))+
+  #scale_colour_brewer(palette = "PuBuGn") +
+  theme_classic()+
+  theme(
+    aspect.ratio = 0.7,
+    legend.text.align = 0,
+    text = element_text(size=8),
+    legend.key.height = unit(0.25,'cm'))+
+  guides(color=guide_legend(override.aes = list(size=1)))+
+  xlim(0, 20)+
+  ylab("(mM)")+
+  xlab("Incubation time (min)")+
+ facet_grid(~ MnP_conc, scales = "free")
+
+
+```
+
+
+## Mn-dependency
+
+We tested the assumption that the MnSO<sub>4</sub> and EDTA controls could be used to distinguish between Mn-dependent and independent oxidation of the four different substrates (ABTS, DMP, L-DOPA, MBTH/DMAB). All assay conditions were identical except for the dye-forming substrate. We ran incubations with either recombinant manganese peroxidase (MnP) from \*Phanerochaete\* or a versitile peroxidase from horseradish (HoP). In these assays, we used a lower H<sub>2</sub>O<sub>2</sub> concentration (2.5 mM) than we have used previously (5 mM in Kyaschenko protocol).
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+# Load data from 2023-12-05
+Mn_depend.dat <- read_csv("Data/Clean/clean_MnP_HoP_comparison.csv")
+
+# Summarize mean absorbance
+Mn_depend.sum <- Mn_depend.dat |> 
+  group_by(enzyme, time_min, treatment, substrate) |> 
+  summarise(mean = mean(absorbance)) 
+Mn_depend.sum$treatment <- fct_relevel(Mn_depend.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+# change enzyme abbreviation from HoP to HRP for figure, change MBTH/DMAB to DMAB/MBTH
+Mn_depend.sum$enzyme[]<-sapply(Mn_depend.sum$enzyme,function(x) gsub("HoP","HRP",x))
+Mn_depend.dat$enzyme[]<-sapply(Mn_depend.dat$enzyme,function(x) gsub("HoP","HRP",x))
+Mn_depend.sum$substrate[]<-sapply(Mn_depend.sum$substrate,function(x) gsub("MBTH/DMAB","DMAB/MBTH",x))
+Mn_depend.dat$substrate[]<-sapply(Mn_depend.dat$substrate,function(x) gsub("MBTH/DMAB","DMAB/MBTH",x))
+Mn_depend.sum$substrate[]<-sapply(Mn_depend.sum$substrate,function(x) gsub("DMP","2,6-DMP",x))
+Mn_depend.dat$substrate[]<-sapply(Mn_depend.dat$substrate,function(x) gsub("DMP","2,6-DMP",x))
+
+#using standard curves to convert absorbance into U of enzyme 
+Mn_depend.sum$a<-c(rep(NA,length(nrow(Mn_depend.sum))))
+Mn_depend.sum$b<-c(rep(NA,length(nrow(Mn_depend.sum))))
+Mn_depend.sum$a<-if_else(Mn_depend.sum$substrate == "2,6-DMP",2.4175,
+                if_else(Mn_depend.sum$substrate == "L-DOPA",0.222,
+                if_else(Mn_depend.sum$substrate == "ABTS",6.6796,
+                if_else(Mn_depend.sum$substrate == "DMAB/MBTH",5.9783,0))))
+
+Mn_depend.sum$b<-if_else(Mn_depend.sum$substrate == "2,6-DMP",0.0122,
+                if_else(Mn_depend.sum$substrate == "L-DOPA",0.0452,
+                if_else(Mn_depend.sum$substrate == "ABTS",0.0998,
+                if_else(Mn_depend.sum$substrate == "DMAB/MBTH",0.0631,0))))
+
+Mn_depend.sum$mean_U<- (Mn_depend.sum$mean*Mn_depend.sum$a)+Mn_depend.sum$b
+```
+
+**Figure 2 - MnP and HoP** Absorbance plotted over time (30 min incubation) of all substrates and either MnP or HoP. Concentrations of MnP and HoP seem to be balanced for the MBTH/DMAB assay (similar absorbance). However, the other substrates seem to diverge in their specificity for the different enzymes. DMP and L-DOPA are easily oxidized by MnP but not by HoP while ABTS is rapidly oxidised by HoP but not by MnP.
+
+```{r plotting_dependency_MnP_vs_HoP_new, echo = FALSE, message = FALSE, warning = FALSE}
+#tiff("Figures/Figure_2.tiff",width = 100,height = 120,res = 1000,units = "mm")
+ggplot(Mn_depend.sum, aes(x = time_min, y = mean_U))+
+  geom_point(aes(colour = treatment), shape = 16,size=0.4)+
+  scale_colour_manual(values = custom_cols, 
+                      labels = custom_names, 
+                      name = "Assay controls")+
+  theme_classic()+
+  theme(
+    aspect.ratio = 0.5,
+    legend.text.align = 0,
+    text=element_text(size=8),
+    legend.key.size = unit(0.98,"line"),
+    legend.position = "bottom")+
+  guides(color=guide_legend(override.aes = list(size=2)))+
+  xlim(0, 30)+
+  ylab(" (mM)")+
+  xlab("Incubation time (min)")+
+ facet_grid(substrate ~ enzyme, scales = "free")
+
+```
+
+Main conclusions: - Cannot distinguish Mn-dependent from Mn-independent oxidation with ABTS - Lack of linearity is a problem with the Mn-control. There seems to be some shift in equilibria between reagents/products in the reactions (see "blip" at \~10 min)
+
+## Homogenization test
+
+Here, we tested the hypothesis that more intense sample homogenization would impact the assay by releasing internal peroxidases to the extract. We grew *Hypholoma fasiculare* on needles for about a month and tested the difference between three levels of extraction intensity. - Soaking in acetate buffer - Vortex shaking in acetate buffer (no visible tears in the mycelium) - Complete disruption of mycelium (UltraTurrax)
+
+```{r wrangling_needle_data, echo = FALSE, message = FALSE, warning = FALSE}
+
+# Load data
+mbth_needle.dat <- read_csv("Data/Clean/clean_MBTH_needle_masceration.csv")
+abts_needle.dat <- read_csv("Data/Clean/clean_ABTS_needle_masceration.csv")
+ldopa_needle.dat <- read_csv("Data/Clean/clean_LDOPA_needle_masceration.csv")
+dmp_needle.dat <- read_csv("Data/Clean/clean_DMP_needle_masceration.csv")
+
+# Summarize mean values for technical replicates for each time point
+
+mbth_needle.sum <- mbth_needle.dat |> 
+  separate(sample,
+           into = c("method", "replicate")) |>
+  filter(method %in% c("shake", "soak", "turrax")) |> 
+  group_by(time_min, method, treatment) |> 
+  summarise(mean = mean(absorbance)) |> 
+  mutate(substrate = "DMAB/MBTH")
+mbth_needle.sum$method <- fct_relevel(mbth_needle.sum$method, "soak", "shake", "turrax")
+mbth_needle.sum$treatment <- fct_relevel(mbth_needle.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+
+abts_needle.sum <- abts_needle.dat |> 
+  separate(sample,
+           into = c("method", "replicate")) |> 
+  group_by(time_min, method, treatment) |> 
+  summarise(mean = mean(absorbance))|> 
+  mutate(substrate = "ABTS")
+abts_needle.sum$method <- fct_relevel(abts_needle.sum$method, "soak", "shake", "turrax")
+abts_needle.sum$treatment <- fct_relevel(abts_needle.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+ldopa_needle.sum <- ldopa_needle.dat |> 
+  separate(sample,
+           into = c("method", "replicate")) |> 
+  group_by(time_min, method, treatment) |> 
+  summarise(mean = mean(absorbance)) |> 
+  mutate(substrate = "L-DOPA")
+ldopa_needle.sum$method <- fct_relevel(ldopa_needle.sum$method, "soak", "shake", "turrax")
+ldopa_needle.sum$treatment <- fct_relevel(ldopa_needle.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+dmp_needle.sum <- dmp_needle.dat |> 
+  separate(sample,
+           into = c("method", "replicate")) |> 
+  group_by(time_min, method, treatment) |> 
+  summarise(mean = mean(absorbance)) |> 
+  mutate(substrate = "2,6-DMP")
+dmp_needle.sum$method <- fct_relevel(dmp_needle.sum$method, "soak", "shake", "turrax")
+dmp_needle.sum$treatment <- fct_relevel(dmp_needle.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+needle.sum <- rbind(mbth_needle.sum, abts_needle.sum, ldopa_needle.sum, dmp_needle.sum)
+
+needle.sum <- needle.sum |> 
+  mutate(method = recode(method,
+                         "soak" = "Soaking",
+                         "shake" = "Shaking",
+                         "turrax" = "Fine homogenization"))
+
+#using standard curves to convert absorbance into U of enzyme 
+needle.sum$a<-c(rep(NA,length(nrow(needle.sum))))
+needle.sum$b<-c(rep(NA,length(nrow(needle.sum))))
+needle.sum$a<-if_else(needle.sum$substrate == "2,6-DMP",2.4175,
+                if_else(needle.sum$substrate == "L-DOPA",0.222,
+                if_else(needle.sum$substrate == "ABTS",6.6796,
+                if_else(needle.sum$substrate == "DMAB/MBTH",5.9783,0))))
+
+needle.sum$b<-if_else(needle.sum$substrate == "2,6-DMP",0.0122,
+                if_else(needle.sum$substrate == "L-DOPA",0.0452,
+                if_else(needle.sum$substrate == "ABTS",0.0998,
+                if_else(needle.sum$substrate == "DMAB/MBTH",0.0631,0))))
+
+needle.sum$mean_U<- (needle.sum$mean*needle.sum$a)+needle.sum$b
+
+needle.sum <- needle.sum |> 
+  mutate(method = recode(method,
+                         "soak" = "Soaking",
+                         "shake" = "Shaking",
+                         "turrax" = "Fine homogenization"))
+```
+
+The more intense extraction method, the higher enzyme activity - this is not a big surprise. With the most intense extraction "turrax" there is some indication that H<sub>2</sub>O<sub>2</sub> was released in the solution. Absorbance decreased over time also with only solutions A or B in the reaction (no added H<sub>2</sub>O<sub>2</sub>).
+
+More interestingly, the increase in absorbance in the "B + H<sub>2</sub>O<sub>2</sub>" treatment for homogenised samples suggests that some other type of peroxidase was released. I'm not sure whether the *Hypholoma* produces extracellular non-Mn dependent peroxidases but if it does, we should be able to observe an increase in absorbance in "B + H<sub>2</sub>O<sub>2</sub>" also in the shaken sample. I therefore assume that some internal peroxidases were released when we homogenized the mycelium. It is a bit difficult to interpret the significance of the non-Mn dependent peroxidases in relation to MnP in this assay since recovery of MnP also increased in that treatment.
+
+**Figure 3** Absorbance plotted over time (15 min). Different extraction intensities and all four substrates. Points are mean values of 4 technical replicates from 3 biological replicates.
+
+```{r needle_fig, echo = FALSE, message = FALSE, warning = FALSE}
+#tiff("Figures/Figure_3.tiff",width = 100,height = 120,res = 1000,units = "mm")
+ggplot(needle.sum, aes(x = time_min, y = mean_U))+
+  geom_point(aes(colour = treatment),shape = 16,size=0.4)+
+  scale_colour_manual(values = custom_cols,
+                      labels = custom_names,
+                      name = "Assay controls")+
+  theme_classic()+
+  theme(
+    aspect.ratio = 0.7,
+    legend.text.align = 0,
+    text = element_text(size=8),
+    legend.position = "bottom")+
+  guides(color=guide_legend(override.aes = list(size=2)))+
+  xlim(0,15)+
+  ylab("(mM)")+
+  xlab("Incubation time (min)")+
+ facet_grid(substrate ~ method, scales = "free")
+```
+
+We also did a non-replicated get an idea about how much enzyme could still be extracted after an initial round of shaking the plates. We therefore added more acetate buffer to the plates that had been shaken and tried the different levels of extraction intensity. It is clear that there is a lot of enzyme remaining after the first extraction round. This would mean that the extraction method should be standardized, otherwise semi-quantitative measurements would be difficult.
+
+```{r resampling, echo = FALSE, message = FALSE, warning = FALSE}
+mbth_needle_resamp.sum <- mbth_needle.dat |> 
+    separate(sample,
+           into = c("method", "replicate")) |>
+  filter(method %in% c("shakeshake", "shakesoak", "shaketurrax")) |>
+  select(-replicate) |> 
+  group_by(time_min, method, treatment) |> 
+  summarise(mean = mean(absorbance)) |> 
+  mutate(substrate = "DMAB/MBTH")
+mbth_needle_resamp.sum$method <- fct_relevel(mbth_needle_resamp.sum$method, "shakesoak", "shakeshake", "shaketurrax")
+mbth_needle_resamp.sum$treatment <- fct_relevel(mbth_needle_resamp.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+mbth_needle_resamp.sum <- mbth_needle_resamp.sum |> 
+  mutate(method = recode(method,
+                "shakesoak" = "Shaking + Soaking",
+                "shakeshake" = "Shaking + Shaking",
+                "shaketurrax" = "Shaking + fine homogenization"
+                ))
+```
+
+**Figure 4** Absorbance over time (MBTH/DMAB assay) of re-extracted plates. Absorbance values are slightly lower, but still similar to numbers obtained during first-round extractions.
+
+```{r,  echo = FALSE, message = FALSE, warning = FALSE}
+#tiff("Figures/Figure_4.tiff",width = 100,height = 60,res = 1000,units = "mm")
+ggplot(mbth_needle_resamp.sum, aes(x = time_min, y = mean))+
+  geom_point(aes(colour = treatment),shape = 16,size=0.4)+
+  scale_colour_manual(values = custom_cols,
+                      labels = custom_names,
+                      name = "Assay controls")+
+  theme_classic()+
+   theme(
+    aspect.ratio = 0.7,
+    legend.text.align = 0,
+    text = element_text(size=6),
+    legend.position = "bottom")+
+  guides(color=guide_legend(override.aes = list(size=2)))+
+  xlim(0,15)+
+  ylab("(mM)")+
+  xlab("Incubation time (min)")+
+ facet_grid(substrate ~ method, scales = "free")
+```
+
