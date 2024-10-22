@@ -1,0 +1,352 @@
+---
+title: "Extract slopes"
+output: html_document
+date: "`r Sys.Date()`"
+---
+# load packages
+```{r}
+library(readr)
+library(dplyr)
+library(tidyverse)
+library(lme4)
+```
+#load and wrangle data
+```{r wrangling_needle_data, echo = FALSE, message = FALSE, warning = FALSE}
+
+# Load data
+mbth_needle.dat <- read_csv("Data/Clean/clean_MBTH_needle_masceration.csv")
+abts_needle.dat <- read_csv("Data/Clean/clean_ABTS_needle_masceration.csv")
+ldopa_needle.dat <- read_csv("Data/Clean/clean_LDOPA_needle_masceration.csv")
+dmp_needle.dat <- read_csv("Data/Clean/clean_DMP_needle_masceration.csv")
+
+# Summarize mean values for technical replicates for each time point
+
+mbth_needle.sum <- mbth_needle.dat |> 
+  separate(sample,
+           into = c("method", "replicate")) |>
+  filter(method %in% c("shake", "soak", "turrax")) |> 
+  group_by(time_min, method, treatment,replicate) |> 
+  summarise(mean = mean(absorbance)) |> 
+  mutate(substrate = "MBTH/DMAB")
+mbth_needle.sum$method <- fct_relevel(mbth_needle.sum$method, "soak", "shake", "turrax")
+mbth_needle.sum$treatment <- fct_relevel(mbth_needle.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+
+abts_needle.sum <- abts_needle.dat |> 
+  separate(sample,
+           into = c("method", "replicate")) |> 
+  group_by(time_min, method, treatment,replicate) |> 
+  summarise(mean = mean(absorbance))|> 
+  mutate(substrate = "ABTS")
+abts_needle.sum$method <- fct_relevel(abts_needle.sum$method, "soak", "shake", "turrax")
+abts_needle.sum$treatment <- fct_relevel(abts_needle.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+ldopa_needle.sum <- ldopa_needle.dat |> 
+  separate(sample,
+           into = c("method", "replicate")) |> 
+  group_by(time_min, method, treatment,replicate) |> 
+  summarise(mean = mean(absorbance)) |> 
+  mutate(substrate = "L-DOPA")
+ldopa_needle.sum$method <- fct_relevel(ldopa_needle.sum$method, "soak", "shake", "turrax")
+ldopa_needle.sum$treatment <- fct_relevel(ldopa_needle.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+dmp_needle.sum <- dmp_needle.dat |> 
+  separate(sample,
+           into = c("method", "replicate")) |> 
+  group_by(time_min, method, treatment,replicate) |> 
+  summarise(mean = mean(absorbance)) |> 
+  mutate(substrate = "DMP")
+dmp_needle.sum$method <- fct_relevel(dmp_needle.sum$method, "soak", "shake", "turrax")
+dmp_needle.sum$treatment <- fct_relevel(dmp_needle.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+
+```
+
+#create slopes and r.squ
+```{r extract slopes, echo = FALSE, message = FALSE, warning = FALSE}
+substrate_needle_list<-list(mbth_needle.sum,abts_needle.sum,ldopa_needle.sum,dmp_needle.sum)
+
+#make empty list for dataframes with slopes added 
+substrate_needle_list_slope<-list()
+for (i in 1:length(substrate_needle_list)){
+substrate_needle_list[[i]]<-substrate_needle_list[[i]][-which(substrate_needle_list[[i]]$time_min > 15),] #this trims to first 15 mins (as done in the figure - improves r.squ by capturing rate of increase before plateau)
+  
+substrate_needle_list_slope[[i]]<-substrate_needle_list[[i]] %>% 
+  group_by(time_min, method,replicate) %>% #for each time point
+  mutate(Mn_depen = mean[2]-mean[4])%>% # this function subtracts the mean MnSO4 and EDTA activity
+  ungroup # the resulting df will have repeated values of the calculated differences for every time point 
+
+substrate_needle_list_slope[[i]]<-substrate_needle_list_slope[[i]] %>% 
+  group_by(method, treatment,replicate) %>% #for each time point
+  mutate(slope = coef(lm(mean~time_min))[2])%>% # this function determines slope for each treatment
+  ungroup 
+
+substrate_needle_list_slope[[i]]<-substrate_needle_list_slope[[i]] %>% 
+  group_by(method, treatment,replicate) %>% #for each time point
+  mutate(r.squ = summary(lm(mean~time_min))$adj.r.squared)%>% # this function determines r sqj for each treatment
+  ungroup
+}
+
+
+#pull out to make a new dataframe that isolates the slopes 
+activity_all_treatments<-rbind(substrate_needle_list_slope[[1]][1:36,-c(1,5,7)],substrate_needle_list_slope[[2]][1:36,-c(1,5,7)],substrate_needle_list_slope[[3]][1:36,-c(1,5,7)],substrate_needle_list_slope[[4]][1:36,-c(1,5,7)])
+
+
+```
+
+#check slopes with low r.squ
+```{r check slopes, echo = FALSE, message = FALSE, warning = FALSE}
+activity_all_treatments[which(activity_all_treatments$r.squ < 0.95),]
+
+low.r.sq1 <- mbth_needle.sum |> 
+  filter(method == "shake") |> 
+  filter(replicate == "2") |>
+  filter(treatment == "B")
+
+plot(mean~time_min,data = low.r.sq1[which(low.r.sq1$time_min < 15.5),]) #split into two linear phases
+abline(lm(mean~time_min,data = low.r.sq1[which(low.r.sq1$time_min < 15.5),]))
+plot(mean~time_min,data = low.r.sq1[which(low.r.sq1$time_min < 5),]) #fix by using first 5
+abline(lm(mean~time_min,data = low.r.sq1[which(low.r.sq1$time_min < 5),]))
+
+low.r.sq2 <- abts_needle.sum |> 
+  filter(method == "soak") |> 
+  filter(replicate == "2") |>
+  filter(treatment == "A_H2O2")
+
+plot(mean~time_min,data = low.r.sq2[which(low.r.sq2$time_min < 15.5),]) #split into two linear phases
+abline(lm(mean~time_min,data = low.r.sq2[which(low.r.sq2$time_min < 15.5),]))
+plot(mean~time_min,data = low.r.sq2[which(low.r.sq2$time_min < 10),]) #fix using first 10
+abline(lm(mean~time_min,data = low.r.sq2[which(low.r.sq2$time_min < 10),]))
+
+low.r.sq3 <- dmp_needle.sum |> 
+  filter(method == "shake") |> 
+  filter(replicate == "1") |>
+  filter(treatment == "B")
+
+plot(mean~time_min,data = low.r.sq3[which(low.r.sq3$time_min < 15.5),]) #a clear little increase then crash 
+abline(lm(mean~time_min,data = low.r.sq3[which(low.r.sq3$time_min < 15.5),]))
+plot(mean~time_min,data = low.r.sq3[which(between(low.r.sq3$time_min,3,15)),]) # exlcude first 3 mins
+abline(lm(mean~time_min,data = low.r.sq3[which(between(low.r.sq3$time_min,3,15)),]))
+
+low.r.sq4 <- ldopa_needle.sum |> 
+  filter(method == "shake") |> 
+  filter(treatment == "A")
+
+plot(mean~time_min,data = low.r.sq4[which(low.r.sq4$time_min < 15.5),]) #use only 0-9 mins for rep three
+abline(lm(mean~time_min,data = low.r.sq4[which(low.r.sq4$time_min < 15.5),]))
+plot(mean~time_min,data = low.r.sq4[which(between(low.r.sq4$time_min,0,9)),]) #use only 0-9 mins for rep three
+abline(lm(mean~time_min,data = low.r.sq4[which(between(low.r.sq4$time_min,0,9)),]))
+
+low.r.sq5 <- ldopa_needle.sum |> 
+  filter(method == "shake") |> 
+  filter(treatment == "B") |>
+  filter(replicate == "3")
+
+plot(mean~time_min,data = low.r.sq5[which(low.r.sq5$time_min < 15.5),]) #exlcude first 1 min from rep three
+abline(lm(mean~time_min,data = low.r.sq5[which(low.r.sq5$time_min < 15.5),]))
+plot(mean~time_min,data = low.r.sq5[which(between(low.r.sq5$time_min,1,15)),]) 
+abline(lm(mean~time_min,data = low.r.sq5[which(between(low.r.sq5$time_min,1,15)),]))
+
+low.r.sq6 <- ldopa_needle.sum |> 
+  filter(method == "soak") |> 
+  filter(treatment == "B")
+
+plot(mean~time_min,data = low.r.sq6) #just kinda crummy because change in absorbance is so low 
+abline(lm(mean~time_min,data = low.r.sq6))
+plot(mean~time_min,data = low.r.sq6[which(between(low.r.sq6$time_min,3,15)),]) #try slope between 3 and 15 for replicate 1 
+abline(lm(mean~time_min,data = low.r.sq6[which(between(low.r.sq6$time_min,3,15)),]))
+
+low.r.sq7 <- ldopa_needle.sum |> 
+  filter(method == "soak") |> 
+  filter(treatment == "B_H2O2")|>
+  filter(replicate == "1")
+
+plot(mean~time_min,data = low.r.sq7[which(between(low.r.sq7$time_min,0,15)),]) #remove first 1.5 mins from rep 2 and first 2 mins from rep 3
+abline(lm(mean~time_min,data = low.r.sq7[which(between(low.r.sq7$time_min,0,15)),]))
+
+low.r.sq8 <- ldopa_needle.sum |> 
+  filter(method == "turrax") |> 
+  filter(treatment == "B") |>
+  filter(replicate == "3")
+
+plot(mean~time_min,data = low.r.sq8[which(between(low.r.sq8$time_min,0.5,6.5)),]) #two phase - take the first 6.5 mins
+abline(lm(mean~time_min,data = low.r.sq8[which(between(low.r.sq8$time_min,0.5,6.5)),]))
+```
+
+#manual adjust the needed slopes
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+##note!!! this block needs to be run *IN ORDER* because variable names are repeated (slope and r.squ)
+
+#Shake, B, rep 2, sub MBTH/DMAB
+slope<-coef(lm(mean~time_min, data = mbth_needle.sum[which(mbth_needle.sum$method == "shake" & 
+                                                      mbth_needle.sum$replicate == "2" & 
+                                                      mbth_needle.sum$treatment == "B" &
+                                                      between(mbth_needle.sum$time_min,0,5)),]))[2]
+
+r.squ<-summary(lm(mean~time_min, data = mbth_needle.sum[which(mbth_needle.sum$method == "shake" & 
+                                                      mbth_needle.sum$replicate == "2" & 
+                                                      mbth_needle.sum$treatment == "B" &
+                                                      between(mbth_needle.sum$time_min,0,5)),]))$adj.r.squared
+
+activity_all_treatments[which(activity_all_treatments$method == "shake" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "2" & activity_all_treatments$substrate == "MBTH/DMAB"),5]<-slope
+activity_all_treatments[which(activity_all_treatments$method == "shake" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "2" & activity_all_treatments$substrate == "MBTH/DMAB"),6]<-r.squ
+
+#Soak, A_H2O2, rep 2, sub ABTS
+slope<-coef(lm(mean~time_min, data = abts_needle.sum[which(abts_needle.sum$method == "soak" & 
+                                                      abts_needle.sum$replicate == "2" & 
+                                                      abts_needle.sum$treatment == "A_H2O2" &
+                                                      between(abts_needle.sum$time_min,0,10)),]))[2]
+
+r.squ<-summary(lm(mean~time_min, data = abts_needle.sum[which(abts_needle.sum$method == "soak" & 
+                                                      abts_needle.sum$replicate == "2" & 
+                                                      abts_needle.sum$treatment == "A_H2O2" &
+                                                      between(abts_needle.sum$time_min,0,10)),]))$adj.r.squared
+
+activity_all_treatments[which(activity_all_treatments$method == "soak" & activity_all_treatments$treatment == "A_H2O2" & activity_all_treatments$replicate == "2" & activity_all_treatments$substrate == "ABTS"),5]<-slope
+activity_all_treatments[which(activity_all_treatments$method == "soak" & activity_all_treatments$treatment == "A_H2O2" & activity_all_treatments$replicate == "2" & activity_all_treatments$substrate == "ABTS"),6]<-r.squ
+
+#Shake, B, rep 1, sub DMP
+slope<-coef(lm(mean~time_min, data = dmp_needle.sum[which(dmp_needle.sum$method == "shake" & 
+                                                      dmp_needle.sum$replicate == "1" & 
+                                                      dmp_needle.sum$treatment == "B" &
+                                                      between(dmp_needle.sum$time_min,3,15)),]))[2]
+
+r.squ<-summary(lm(mean~time_min, data = dmp_needle.sum[which(dmp_needle.sum$method == "shake" & 
+                                                      dmp_needle.sum$replicate == "1" & 
+                                                      dmp_needle.sum$treatment == "B" &
+                                                      between(dmp_needle.sum$time_min,3,15)),]))$adj.r.squared
+
+activity_all_treatments[which(activity_all_treatments$method == "shake" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "1" & activity_all_treatments$substrate == "DMP"),5]<-slope
+activity_all_treatments[which(activity_all_treatments$method == "shake" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "1" & activity_all_treatments$substrate == "DMP"),6]<-r.squ
+
+#Shake, A, rep 3, sub ldopa
+slope<-coef(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "shake" & 
+                                                      ldopa_needle.sum$replicate == "3" & 
+                                                      ldopa_needle.sum$treatment == "A" &
+                                                      between(ldopa_needle.sum$time_min,0,9)),]))[2]
+
+r.squ<-summary(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "shake" & 
+                                                      ldopa_needle.sum$replicate == "3" & 
+                                                      ldopa_needle.sum$treatment == "A" &
+                                                      between(ldopa_needle.sum$time_min,0,9)),]))$adj.r.squared
+
+activity_all_treatments[which(activity_all_treatments$method == "shake" & activity_all_treatments$treatment == "A" & activity_all_treatments$replicate == "3" & activity_all_treatments$substrate == "L-DOPA"),5]<-slope
+activity_all_treatments[which(activity_all_treatments$method == "shake" & activity_all_treatments$treatment == "A" & activity_all_treatments$replicate == "3" & activity_all_treatments$substrate == "L-DOPA"),6]<-r.squ
+
+#Shake, B, rep 3, sub ldopa
+slope<-coef(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "shake" & 
+                                                      ldopa_needle.sum$replicate == "3" & 
+                                                      ldopa_needle.sum$treatment == "B" &
+                                                      between(ldopa_needle.sum$time_min,1.5,15)),]))[2]
+
+r.squ<-summary(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "shake" & 
+                                                      ldopa_needle.sum$replicate == "3" & 
+                                                      ldopa_needle.sum$treatment == "B" &
+                                                      between(ldopa_needle.sum$time_min,1.5,15)),]))$adj.r.squared
+
+activity_all_treatments[which(activity_all_treatments$method == "shake" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "3" & activity_all_treatments$substrate == "L-DOPA"),5]<-slope
+activity_all_treatments[which(activity_all_treatments$method == "shake" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "3" & activity_all_treatments$substrate == "L-DOPA"),6]<-r.squ
+
+#Soak, B, rep 1, sub ldopa
+slope<-coef(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "soak" & 
+                                                      ldopa_needle.sum$replicate == "1" & 
+                                                      ldopa_needle.sum$treatment == "B" &
+                                                      between(ldopa_needle.sum$time_min,3,15)),]))[2]
+
+r.squ<-summary(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "soak" & 
+                                                      ldopa_needle.sum$replicate == "1" & 
+                                                      ldopa_needle.sum$treatment == "B" &
+                                                      between(ldopa_needle.sum$time_min,3,15)),]))$adj.r.squared
+
+activity_all_treatments[which(activity_all_treatments$method == "soak" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "1" & activity_all_treatments$substrate == "L-DOPA"),5]<-slope
+activity_all_treatments[which(activity_all_treatments$method == "soak" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "1" & activity_all_treatments$substrate == "L-DOPA"),6]<-r.squ
+
+#Soak, B_H2O2, rep 2, sub ldopa
+slope<-coef(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "soak" & 
+                                                      ldopa_needle.sum$replicate == "2" & 
+                                                      ldopa_needle.sum$treatment == "B_H2O2" &
+                                                      between(ldopa_needle.sum$time_min,2,15)),]))[2]
+
+r.squ<-summary(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "soak" & 
+                                                      ldopa_needle.sum$replicate == "2" & 
+                                                      ldopa_needle.sum$treatment == "B_H2O2" &
+                                                      between(ldopa_needle.sum$time_min,2,15)),]))$adj.r.squared
+
+activity_all_treatments[which(activity_all_treatments$method == "soak" & activity_all_treatments$treatment == "B_H2O2" & activity_all_treatments$replicate == "2" & activity_all_treatments$substrate == "L-DOPA"),5]<-slope
+activity_all_treatments[which(activity_all_treatments$method == "soak" & activity_all_treatments$treatment == "B_H2O2" & activity_all_treatments$replicate == "2" & activity_all_treatments$substrate == "L-DOPA"),6]<-r.squ
+
+#Soak, B_H2O2, rep 3, sub ldopa
+slope<-coef(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "soak" & 
+                                                      ldopa_needle.sum$replicate == "3" & 
+                                                      ldopa_needle.sum$treatment == "B_H2O2" &
+                                                      between(ldopa_needle.sum$time_min,2.5,15)),]))[2]
+
+r.squ<-summary(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "soak" & 
+                                                      ldopa_needle.sum$replicate == "3" & 
+                                                      ldopa_needle.sum$treatment == "B_H2O2" &
+                                                      between(ldopa_needle.sum$time_min,2.5,15)),]))$adj.r.squared
+
+
+activity_all_treatments[which(activity_all_treatments$method == "soak" & activity_all_treatments$treatment == "B_H2O2" & activity_all_treatments$replicate == "3" & activity_all_treatments$substrate == "L-DOPA"),5]<-slope
+activity_all_treatments[which(activity_all_treatments$method == "soak" & activity_all_treatments$treatment == "B_H2O2" & activity_all_treatments$replicate == "3" & activity_all_treatments$substrate == "L-DOPA"),6]<-r.squ
+
+#Turrax, B, rep 3, sub ldopa
+slope<-coef(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "turrax" & 
+                                                      ldopa_needle.sum$replicate == "3" & 
+                                                      ldopa_needle.sum$treatment == "B" &
+                                                      between(ldopa_needle.sum$time_min,0.5,6.5)),]))[2]
+
+r.squ<-summary(lm(mean~time_min, data = ldopa_needle.sum[which(ldopa_needle.sum$method == "turrax" & 
+                                                      ldopa_needle.sum$replicate == "3" & 
+                                                      ldopa_needle.sum$treatment == "B" &
+                                                      between(ldopa_needle.sum$time_min,0.5,6.5)),]))$adj.r.squared
+
+activity_all_treatments[which(activity_all_treatments$method == "turrax" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "3" & activity_all_treatments$substrate == "L-DOPA"),5]<-slope
+activity_all_treatments[which(activity_all_treatments$method == "turrax" & activity_all_treatments$treatment == "B" & activity_all_treatments$replicate == "3" & activity_all_treatments$substrate == "L-DOPA"),6]<-r.squ
+
+#check to see that I improve the ones I wanted...
+activity_all_treatments[which(activity_all_treatments$r.squ < 0.95),] #the remaining R_squ are all above 0.80 and mostly just stocastic due to low change in absorbance
+```
+
+#add ratio of Mn-dep vs Mn-indep
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+activity_all_treatments<-activity_all_treatments %>% 
+  group_by(substrate,method,replicate,grp= case_when(treatment %in% c("A_H2O2","B_H2O2","B")~1 
+)) %>% #I want to subtract background from both A_H2O2 and B_H2O2 so this groups the three treatments I need for equation
+  mutate(ratio = ((slope[3]-slope[2])/(slope[1]-slope[2])))%>% # this function calculates what proportion of activity out of total peroxidase activity is Mn-independent (B_H2O2-B)/(A_H2O2-B) 
+  ungroup %>% 
+  select(-grp)
+
+#the resulting data frame has NA for A treatment because it was excluded from grouping.
+#if the ratio is greater than 1 this means that there was a greater rate without Mn than with - and this appears to be the case with some ABTS reactions...
+#if the ratio is negative it means that without H2O2 the ratio was greater - this is also happens with ABTS but its because the slopes are so small... 
+```
+
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+#make a simpler table
+Mn_dependancy<-activity_all_treatments[which(activity_all_treatments$treatment == "A_H2O2"),c(1,3,4,7)]
+Mn_dependancy$substrate<-as.factor(Mn_dependancy$substrate)
+Mn_dependancy$replicate<-as.factor(Mn_dependancy$replicate)
+Mn_dependancy$ratio<-as.numeric(Mn_dependancy$ratio)
+Mn_dependancy <- Mn_dependancy |> 
+  mutate(method = recode(method,
+                         "soak" = "Soaking",
+                         "shake" = "Shaking",
+                         "turrax" = "Fine homogenization"))
+write_csv(Mn_dependancy, "Data/Clean/Mn_dependancy_ratios_clean.csv")
+
+#plot to visualize
+plot(Mn_dependancy$ratio~Mn_dependancy$method)#ratio is increased in Turrax Treatment 
+plot(Mn_dependancy$ratio~as.factor(Mn_dependancy$substrate))
+```
+
+
+```{r test differences in mean ratio of slopes, echo = FALSE, message = FALSE, warning = FALSE}
+#ABTS because it does not distinguish between when Mn is present and when it is not is exluced from this analysis as the main focus is the sample homogenization method
+ratio.lm<-lm(ratio~method+substrate,data = Mn_dependancy[-which(Mn_dependancy$substrate == "ABTS"),])
+summary(ratio.lm)
+anova(ratio.lm)
+TukeyHSD(aov(ratio~method+substrate,data = Mn_dependancy[-which(Mn_dependancy$substrate == "ABTS"),]))
+plot(ratio.lm)
+```
+
