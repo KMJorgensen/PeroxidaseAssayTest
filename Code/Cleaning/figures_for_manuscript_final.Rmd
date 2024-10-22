@@ -48,8 +48,6 @@ h2o2.sum <- h2o2.dat |>
 #remove half of the points to reduce clutter to the figure
 h2o2.sum.reduced<-h2o2.sum[-grep(".5",h2o2.sum$time_min,fixed = TRUE),]
 
-#convert using standard_curve
-h2o2.sum.reduced$mean_U<- (h2o2.sum.reduced$mean*5.9783)+0.0631
 ```
 
 ```{r, echo = FALSE, message = FALSE, warning = FALSE}
@@ -62,9 +60,9 @@ grad_cols3 <- c("0"= "#1ee19b", "0.375" = "#2cbd89", "0.75" = "#0f9774", "1.25" 
 
 grad_shapes <- c("0"= 4, "0.375" = 3, "0.75" = 5, "1.25" = 2, "2.5" = 0, "5"= 6, "10" = 10, "50" = 19)
 
-#tiff("Figures/Figure_1.tiff",width = 100,height = 50,res = 1000,units = "mm")
-ggplot(h2o2.sum.reduced, aes(x = time_min, y = mean_U, color = H2O2_conc, shape = H2O2_conc))+
-  geom_point(size = 0.5,stroke=0.25)+
+#tiff("Figures/Figure_1.tiff",width = 240,height = 80,res = 1000,units = "mm")
+ggplot(h2o2.sum.reduced, aes(x = time_min, y = mean, color = H2O2_conc, shape = H2O2_conc))+
+  geom_point(size = 2,stroke=0.5)+
   scale_shape_manual(values = grad_shapes,
                      name = bquote("H"[2]*"O"[2]~"concentration"))+
   scale_colour_manual(values = grad_cols3,
@@ -72,16 +70,15 @@ ggplot(h2o2.sum.reduced, aes(x = time_min, y = mean_U, color = H2O2_conc, shape 
   #scale_colour_brewer(palette = "PuBuGn") +
   theme_classic()+
   theme(
-    aspect.ratio = 0.7,
+    #aspect.ratio = 0.7,
     legend.text.align = 0,
-    text = element_text(size=8),
+    text = element_text(size=11),
     legend.key.height = unit(0.25,'cm'))+
-  guides(color=guide_legend(override.aes = list(size=1)))+
+  guides(color=guide_legend(override.aes = list(size=2)))+
   xlim(0, 20)+
-  ylab("(mM)")+
+  ylab("Absorbance 590 nm")+
   xlab("Incubation time (min)")+
  facet_grid(~ MnP_conc, scales = "free")
-
 
 ```
 
@@ -108,27 +105,13 @@ Mn_depend.dat$substrate[]<-sapply(Mn_depend.dat$substrate,function(x) gsub("MBTH
 Mn_depend.sum$substrate[]<-sapply(Mn_depend.sum$substrate,function(x) gsub("DMP","2,6-DMP",x))
 Mn_depend.dat$substrate[]<-sapply(Mn_depend.dat$substrate,function(x) gsub("DMP","2,6-DMP",x))
 
-#using standard curves to convert absorbance into U of enzyme 
-Mn_depend.sum$a<-c(rep(NA,length(nrow(Mn_depend.sum))))
-Mn_depend.sum$b<-c(rep(NA,length(nrow(Mn_depend.sum))))
-Mn_depend.sum$a<-if_else(Mn_depend.sum$substrate == "2,6-DMP",2.4175,
-                if_else(Mn_depend.sum$substrate == "L-DOPA",0.222,
-                if_else(Mn_depend.sum$substrate == "ABTS",6.6796,
-                if_else(Mn_depend.sum$substrate == "DMAB/MBTH",5.9783,0))))
-
-Mn_depend.sum$b<-if_else(Mn_depend.sum$substrate == "2,6-DMP",0.0122,
-                if_else(Mn_depend.sum$substrate == "L-DOPA",0.0452,
-                if_else(Mn_depend.sum$substrate == "ABTS",0.0998,
-                if_else(Mn_depend.sum$substrate == "DMAB/MBTH",0.0631,0))))
-
-Mn_depend.sum$mean_U<- (Mn_depend.sum$mean*Mn_depend.sum$a)+Mn_depend.sum$b
 ```
 
 **Figure 2 - MnP and HoP** Absorbance plotted over time (30 min incubation) of all substrates and either MnP or HoP. Concentrations of MnP and HoP seem to be balanced for the MBTH/DMAB assay (similar absorbance). However, the other substrates seem to diverge in their specificity for the different enzymes. DMP and L-DOPA are easily oxidized by MnP but not by HoP while ABTS is rapidly oxidised by HoP but not by MnP.
 
 ```{r plotting_dependency_MnP_vs_HoP_new, echo = FALSE, message = FALSE, warning = FALSE}
-#tiff("Figures/Figure_2.tiff",width = 100,height = 120,res = 1000,units = "mm")
-ggplot(Mn_depend.sum, aes(x = time_min, y = mean_U))+
+#tiff("Figures/Figure_2.tiff",width = 110,height = 120,res = 1000,units = "mm")
+ggplot(Mn_depend.sum, aes(x = time_min, y = mean))+
   geom_point(aes(colour = treatment), shape = 16,size=0.4)+
   scale_colour_manual(values = custom_cols, 
                       labels = custom_names, 
@@ -142,7 +125,7 @@ ggplot(Mn_depend.sum, aes(x = time_min, y = mean_U))+
     legend.position = "bottom")+
   guides(color=guide_legend(override.aes = list(size=2)))+
   xlim(0, 30)+
-  ylab(" (mM)")+
+  ylab("Absorbance")+
   xlab("Incubation time (min)")+
  facet_grid(substrate ~ enzyme, scales = "free")
 
@@ -209,27 +192,6 @@ needle.sum <- needle.sum |>
                          "soak" = "Soaking",
                          "shake" = "Shaking",
                          "turrax" = "Fine homogenization"))
-
-#using standard curves to convert absorbance into U of enzyme 
-needle.sum$a<-c(rep(NA,length(nrow(needle.sum))))
-needle.sum$b<-c(rep(NA,length(nrow(needle.sum))))
-needle.sum$a<-if_else(needle.sum$substrate == "2,6-DMP",2.4175,
-                if_else(needle.sum$substrate == "L-DOPA",0.222,
-                if_else(needle.sum$substrate == "ABTS",6.6796,
-                if_else(needle.sum$substrate == "DMAB/MBTH",5.9783,0))))
-
-needle.sum$b<-if_else(needle.sum$substrate == "2,6-DMP",0.0122,
-                if_else(needle.sum$substrate == "L-DOPA",0.0452,
-                if_else(needle.sum$substrate == "ABTS",0.0998,
-                if_else(needle.sum$substrate == "DMAB/MBTH",0.0631,0))))
-
-needle.sum$mean_U<- (needle.sum$mean*needle.sum$a)+needle.sum$b
-
-needle.sum <- needle.sum |> 
-  mutate(method = recode(method,
-                         "soak" = "Soaking",
-                         "shake" = "Shaking",
-                         "turrax" = "Fine homogenization"))
 ```
 
 The more intense extraction method, the higher enzyme activity - this is not a big surprise. With the most intense extraction "turrax" there is some indication that H<sub>2</sub>O<sub>2</sub> was released in the solution. Absorbance decreased over time also with only solutions A or B in the reaction (no added H<sub>2</sub>O<sub>2</sub>).
@@ -239,8 +201,8 @@ More interestingly, the increase in absorbance in the "B + H<sub>2</sub>O<sub>2<
 **Figure 3** Absorbance plotted over time (15 min). Different extraction intensities and all four substrates. Points are mean values of 4 technical replicates from 3 biological replicates.
 
 ```{r needle_fig, echo = FALSE, message = FALSE, warning = FALSE}
-#tiff("Figures/Figure_3.tiff",width = 100,height = 120,res = 1000,units = "mm")
-ggplot(needle.sum, aes(x = time_min, y = mean_U))+
+#tiff("Figures/Figure_3.tiff",width = 120,height = 120,res = 1000,units = "mm")
+ggplot(needle.sum, aes(x = time_min, y = mean))+
   geom_point(aes(colour = treatment),shape = 16,size=0.4)+
   scale_colour_manual(values = custom_cols,
                       labels = custom_names,
@@ -253,11 +215,51 @@ ggplot(needle.sum, aes(x = time_min, y = mean_U))+
     legend.position = "bottom")+
   guides(color=guide_legend(override.aes = list(size=2)))+
   xlim(0,15)+
-  ylab("(mM)")+
+  ylab("Absorbance")+
   xlab("Incubation time (min)")+
  facet_grid(substrate ~ method, scales = "free")
 ```
 
+
+In order to be able to assess what impact the homogenization method has on the release of internal (Mn-independant) peroxidases and how this measurement varies between substrates we extracted the slopes from each reaction and compared the ratios of Mn-dependant to Mn-independant. Each slope is measured from the first 15 minutes of the reaction, except for in a few case where the range of time is adjusted to avoid stochastic points, i.e. slope taken over 1-15 minutes if 0-1 minutes were decreasing. 
+
+```{r read_in_clean_data, echo = FALSE, message = FALSE, warning = FALSE}
+#read in clean dataframe with ratios of Mn-dep to Mn-indep for each replicate for every substrate type, and method of homogenization. 
+Mn_dependancy<-read_csv("Data/Clean/Mn_dependancy_ratios_clean.csv",col_types = list(col_factor(),col_factor(),col_factor(),col_number()))
+
+Mn_dependancy <- Mn_dependancy %>% 
+  mutate(substrate = recode(substrate,
+                "DMP" = "2,6-DMP"
+                ))
+Mn_dependancy$method <- fct_relevel(Mn_dependancy$method, "Soaking", "Shaking", "Fine homogenization")
+```
+
+**Figure 4** Ratio between rate of activity for Mn-dependant and Mn-independant reactions. 
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+#tiff("Figures/Figure_4.tiff",width = 160,height = 100,res = 1000,units = "mm")
+ggplot(Mn_dependancy[-which(Mn_dependancy$substrate == "ABTS"),], aes(x=method,y=ratio,colour=substrate))+
+  geom_jitter(position = position_dodge(0.6),size=2)+labs(x="Sample treatment",y="Proportion of Mn-independent activity")+
+  theme_classic()+
+  scale_color_manual(values = c("#6567B8","#E7BB74","#EE896D"))+
+  theme(legend.position = "right",legend.title = element_blank(),axis.text = element_text(size = 13))+
+ stat_summary_bin(data= Mn_dependancy[-which(Mn_dependancy$substrate == "ABTS"),] ,aes(x=method,y=ratio,colour=substrate,group=substrate),fun.data="mean_se",fun.args = list(mult=1), geom="errorbar",width=0.1, position = position_dodge(0.6),linewidth=0.5)+ #add the se of the mean 
+  stat_summary_bin(data= Mn_dependancy[-which(Mn_dependancy$substrate == "ABTS"),] ,aes(x=method,y=ratio,colour=substrate,group=substrate),fun ="mean",geom = "point", position = position_dodge(0.6),size=2,shape=1) # add the mean points 
+ 
+#this is the figure when ABTS is included
+#tiff("Figures/Figure_S1.tiff",width = 170,height = 100,res = 1000,units = "mm")
+ggplot(Mn_dependancy, aes(x=method,y=ratio,colour=substrate))+
+  geom_jitter(position = position_dodge(0.6),size=2)+labs(x="Sample treatment",y="Proportion of Mn-independent activity")+
+  theme_classic()+
+  scale_color_manual(values = c("#6567B8","#96C5AB","#E7BB74","#EE896D"))+
+  theme(legend.position = "right",legend.title = element_blank(),axis.text = element_text(size = 13))+
+ stat_summary_bin(data= Mn_dependancy ,aes(x=method,y=ratio,colour=substrate,group=substrate),fun.data="mean_se",fun.args = list(mult=1), geom="errorbar",width=0.1, position = position_dodge(0.6),linewidth=0.5)+ #add the se of the mean 
+  stat_summary_bin(data= Mn_dependancy ,aes(x=method,y=ratio,colour=substrate,group=substrate),fun ="mean",geom = "point", position = position_dodge(0.6),size=2,shape=1)+# add the mean points
+  geom_hline(yintercept = 1,linetype="dashed")  
+
+
+##substrates are colour coded according to the colour the substrate produces when oxidized
+```
 We also did a non-replicated get an idea about how much enzyme could still be extracted after an initial round of shaking the plates. We therefore added more acetate buffer to the plates that had been shaken and tried the different levels of extraction intensity. It is clear that there is a lot of enzyme remaining after the first extraction round. This would mean that the extraction method should be standardized, otherwise semi-quantitative measurements would be difficult.
 
 ```{r resampling, echo = FALSE, message = FALSE, warning = FALSE}
@@ -280,24 +282,24 @@ mbth_needle_resamp.sum <- mbth_needle_resamp.sum |>
                 ))
 ```
 
-**Figure 4** Absorbance over time (MBTH/DMAB assay) of re-extracted plates. Absorbance values are slightly lower, but still similar to numbers obtained during first-round extractions.
+**Figure 5** Absorbance over time (MBTH/DMAB assay) of re-extracted plates. Absorbance values are slightly lower, but still similar to numbers obtained during first-round extractions.
 
 ```{r,  echo = FALSE, message = FALSE, warning = FALSE}
-#tiff("Figures/Figure_4.tiff",width = 100,height = 60,res = 1000,units = "mm")
+#tiff("Figures/Figure_5.tiff",width = 160,height = 80,res = 1000,units = "mm")
 ggplot(mbth_needle_resamp.sum, aes(x = time_min, y = mean))+
-  geom_point(aes(colour = treatment),shape = 16,size=0.4)+
+  geom_point(aes(colour = treatment),shape = 16,size=0.8)+
   scale_colour_manual(values = custom_cols,
                       labels = custom_names,
                       name = "Assay controls")+
   theme_classic()+
    theme(
-    aspect.ratio = 0.7,
+    #aspect.ratio = 0.7,
     legend.text.align = 0,
-    text = element_text(size=6),
+    text = element_text(size=11),
     legend.position = "bottom")+
   guides(color=guide_legend(override.aes = list(size=2)))+
   xlim(0,15)+
-  ylab("(mM)")+
+  ylab("Absorbance")+
   xlab("Incubation time (min)")+
  facet_grid(substrate ~ method, scales = "free")
 ```
