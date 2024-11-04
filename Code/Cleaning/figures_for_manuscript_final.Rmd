@@ -52,11 +52,7 @@ h2o2.sum.reduced<-h2o2.sum[-grep(".5",h2o2.sum$time_min,fixed = TRUE),]
 
 ```{r, echo = FALSE, message = FALSE, warning = FALSE}
 
-grad_cols <- c("0"= "#A1C4CE", "0.375" = "#87B3C0", "0.75" = "#6CA3B2", "1.25" = "#5490A0", "2.5" = "#467886", "5"= "#38606B", "10" = "#2A4850", "50" = "#1C3035" )
-
-grad_cols2 <- c("0"= "#60ae94", "0.375" = "#6c9473", "0.75" = "#568678", "1.25" = "#506c78", "2.5" = "#436074", "5"= "#334151", "10" = "#1b283b", "50" = "#0a0c1a" )
-
-grad_cols3 <- c("0"= "#1ee19b", "0.375" = "#2cbd89", "0.75" = "#0f9774", "1.25" = "#009657", "2.5" = "#226346", "5"= "#0f4926", "10" = "#0d2d1b", "50" = "#16261a" )
+grad_cols <- c("0"= "#1ee19b", "0.375" = "#2cbd89", "0.75" = "#0f9774", "1.25" = "#009657", "2.5" = "#226346", "5"= "#0f4926", "10" = "#0d2d1b", "50" = "#16261a" )
 
 grad_shapes <- c("0"= 4, "0.375" = 3, "0.75" = 5, "1.25" = 2, "2.5" = 0, "5"= 6, "10" = 10, "50" = 19)
 
@@ -64,10 +60,9 @@ grad_shapes <- c("0"= 4, "0.375" = 3, "0.75" = 5, "1.25" = 2, "2.5" = 0, "5"= 6,
 ggplot(h2o2.sum.reduced, aes(x = time_min, y = mean, color = H2O2_conc, shape = H2O2_conc))+
   geom_point(size = 2,stroke=0.5)+
   scale_shape_manual(values = grad_shapes,
-                     name = bquote("H"[2]*"O"[2]~"concentration"))+
-  scale_colour_manual(values = grad_cols3,
-                      name = bquote("H"[2]*"O"[2]~"concentration"))+
-  #scale_colour_brewer(palette = "PuBuGn") +
+                     name = bquote("H"[2]*"O"[2]~"(mM)"))+
+  scale_colour_manual(values = grad_cols,
+                      name = bquote("H"[2]*"O"[2]~"(mM)"))+
   theme_classic()+
   theme(
     #aspect.ratio = 0.7,
