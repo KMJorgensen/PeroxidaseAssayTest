@@ -70,19 +70,19 @@ substrate_needle_list_slope<-list()
 for (i in 1:length(substrate_needle_list)){
 substrate_needle_list[[i]]<-substrate_needle_list[[i]][-which(substrate_needle_list[[i]]$time_min > 15),] #this trims to first 15 mins (as done in the figure - improves r.squ by capturing rate of increase before plateau)
   
-substrate_needle_list_slope[[i]]<-substrate_needle_list[[i]] %>% 
-  group_by(time_min, method,replicate) %>% #for each time point
-  mutate(Mn_depen = mean[2]-mean[4])%>% # this function subtracts the mean MnSO4 and EDTA activity
+substrate_needle_list_slope[[i]]<-substrate_needle_list[[i]] |>  
+  group_by(time_min, method,replicate) |>  #for each time point
+  mutate(Mn_depen = mean[2]-mean[4]) |>  # this function subtracts the mean MnSO4 and EDTA activity
   ungroup # the resulting df will have repeated values of the calculated differences for every time point 
 
-substrate_needle_list_slope[[i]]<-substrate_needle_list_slope[[i]] %>% 
-  group_by(method, treatment,replicate) %>% #for each time point
-  mutate(slope = coef(lm(mean~time_min))[2])%>% # this function determines slope for each treatment
+substrate_needle_list_slope[[i]]<-substrate_needle_list_slope[[i]] |>  
+  group_by(method, treatment,replicate) |>  #for each time point
+  mutate(slope = coef(lm(mean~time_min))[2]) |>  # this function determines slope for each treatment
   ungroup 
 
-substrate_needle_list_slope[[i]]<-substrate_needle_list_slope[[i]] %>% 
-  group_by(method, treatment,replicate) %>% #for each time point
-  mutate(r.squ = summary(lm(mean~time_min))$adj.r.squared)%>% # this function determines r sqj for each treatment
+substrate_needle_list_slope[[i]]<-substrate_needle_list_slope[[i]] |>  
+  group_by(method, treatment,replicate) |>  #for each time point
+  mutate(r.squ = summary(lm(mean~time_min))$adj.r.squared) |>  # this function determines r sqj for each treatment
   ungroup
 }
 
@@ -312,7 +312,7 @@ activity_all_treatments[which(activity_all_treatments$r.squ < 0.95),] #the remai
 activity_all_treatments<-activity_all_treatments %>% 
   group_by(substrate,method,replicate,grp= case_when(treatment %in% c("A_H2O2","B_H2O2","B")~1 
 )) %>% #I want to subtract background from both A_H2O2 and B_H2O2 so this groups the three treatments I need for equation
-  mutate(ratio = ((slope[3]-slope[2])/(slope[1]-slope[2])))%>% # this function calculates what proportion of activity out of total peroxidase activity is Mn-independent (B_H2O2-B)/(A_H2O2-B) 
+  mutate(ratio = ((slope[3]-slope[2])/(slope[1]-slope[2]))) |>  # this function calculates what proportion of activity out of total peroxidase activity is Mn-independent (B_H2O2-B)/(A_H2O2-B) 
   ungroup %>% 
   select(-grp)
 
