@@ -222,7 +222,7 @@ In order to be able to assess what impact the homogenization method has on the r
 #read in clean dataframe with ratios of Mn-dep to Mn-indep for each replicate for every substrate type, and method of homogenization. 
 Mn_dependancy<-read_csv("Data/Clean/Mn_dependancy_ratios_clean.csv",col_types = list(col_factor(),col_factor(),col_factor(),col_number()))
 
-Mn_dependancy <- Mn_dependancy %>% 
+Mn_dependancy <- Mn_dependancy |>  
   mutate(substrate = recode(substrate,
                 "DMP" = "2,6-DMP"
                 ))
