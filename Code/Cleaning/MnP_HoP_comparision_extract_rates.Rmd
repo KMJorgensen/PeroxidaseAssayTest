@@ -1,0 +1,74 @@
+---
+title: "MnP_HoP_comparision_extract_rates"
+output: html_document
+date: "2025-01-08"
+---
+
+```{r load packages, include=FALSE}
+library(readr)
+library(dplyr)
+library(tidyverse)
+library(lme4)
+```
+
+#load and wrangle data
+```{r wrangling_needle_data, echo = FALSE, message = FALSE, warning = FALSE}
+
+# Load data
+Mn_depend.dat <- read_csv("Data/Clean/clean_MnP_HoP_comparison.csv")
+
+# called HRP in DMP samples and HoP in all others... change all to HRP
+Mn_depend.dat$enzyme<-if_else(Mn_depend.dat$enzyme == "HoP","HRP",if_else(Mn_depend.dat$enzyme == "MnP","MnP",if_else(Mn_depend.dat$enzyme == "HRP","HRP","miss")))
+
+# Summarize mean values for technical replicates for each time point - each row is a technical rep (i.e. A1, B1, C1, D1 are all tech reps)
+
+Mn_depend.sum <- Mn_depend.dat |> 
+  group_by(time_min, enzyme, treatment,substrate) |> 
+  summarise(mean = mean(absorbance)) 
+
+#order levels
+Mn_depend.sum$treatment <- fct_relevel(Mn_depend.sum$treatment, "A_H2O2", "A", "B_H2O2", "B")
+Mn_depend.sum$enzyme <- fct_relevel(Mn_depend.sum$enzyme, "MnP", "HRP")
+
+#seperate out into different datasets for each substrate
+
+Mn_dep_MBTH.sum<- Mn_depend.sum |>
+  filter(substrate == "MBTH/DMAB")
+Mn_dep_abts.sum<- Mn_depend.sum |>
+  filter(substrate == "ABTS")
+Mn_dep_ldopa.sum<- Mn_depend.sum |>
+  filter(substrate == "L-DOPA")
+Mn_dep_dmp.sum<- Mn_depend.sum |>
+  filter(substrate == "DMP")
+```
+
+#create slopes and r.squ
+```{r extract slopes, echo = FALSE, message = FALSE, warning = FALSE}
+substrate_list<-list(Mn_dep_MBTH.sum,Mn_dep_abts.sum,Mn_dep_ldopa.sum,Mn_dep_dmp.sum)
+
+#make empty list for dataframes with slopes added 
+substrate_list_slope<-list()
+for (i in 1:length(substrate_list)){
+substrate_list[[i]]<-substrate_list[[i]][-which(substrate_list[[i]]$time_min > 5),] #this trims to first 5 mins (as done in the figure - improves r.squ by capturing rate of increase before plateau)
+  
+substrate_list_slope[[i]]<-substrate_list[[i]] |> 
+  group_by(enzyme, treatment) |> #for each time point
+  mutate(slope = coef(lm(mean~time_min))[2])|> # this function determines slope for each treatment
+  ungroup 
+
+substrate_list_slope[[i]]<-substrate_list_slope[[i]] |> 
+  group_by(enzyme, treatment) |> #for each time point
+  mutate(r.squ = summary(lm(mean~time_min))$adj.r.squared)|> # this function determines r sqj for each treatment
+  ungroup
+}
+
+
+#pull out to make a new dataframe that isolates the slopes 
+activity_all_treatments<-rbind(substrate_list_slope[[1]][1:8,-c(1,5,7)],substrate_list_slope[[2]][1:8,-c(1,5,7)],substrate_list_slope[[3]][1:8,-c(1,5,7)],substrate_list_slope[[4]][1:8,-c(1,5,7)])
+activity_all_treatments$substrate<-as.factor(activity_all_treatments$substrate)
+```
+
+```{r}
+write_csv(activity_all_treatments,"Data/clean/MnP_vs_HRP_extracted_slopes.csv")
+```
+
